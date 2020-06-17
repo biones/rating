@@ -1,0 +1,51 @@
+library(rstan)
+
+scode="
+data{
+  int N;
+  int M;
+  int x[N];
+  int y[N];
+  int one[N];
+}
+
+parameters {
+  real rate[M];
+  //real p[M];
+}
+
+model{
+  real b=0.00575364;
+  rate~normal(1500,1000);
+  for(i in 1:N){
+    target += bernoulli_lpmf( one[i] | inv_logit(b*(rate[x[i]]-rate[y[i]])) );
+  }
+  
+}
+
+/*
+generated quantities{
+
+}
+*/
+"
+
+#b=Solve[1/(1 + Exp[-x*100]) == 0.64, x]
+
+#1-4の4人でxが勝ち
+x=c(1,3,4,1,4,3,1)
+y=c(2,2,3,3,2,2,4)
+
+lst=list(N=length(x),x=x,y=y,M=max(x),one=rep(1,length(x)))
+fit=stan(model_code = scode,data=lst,
+         #init = function(){},
+         chain=1,iter=500,warmup = 80)
+
+la=extract(fit)
+
+rate=apply(la$rate,2,mean)
+print(rate)
+#[1] 2463.690  403.316 1254.647 1795.259
+
+
+mrate=rate-mean(rate)

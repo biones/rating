@@ -1,0 +1,137 @@
+library(rstan)
+
+scode="
+data{
+  int N;
+  real y[N];
+  int arn;
+}
+
+parameters {
+  real sigma;
+  real trend[N];
+  real v_trend;
+  real ar[N];
+  real c_ar[N,arn];
+  real s_ar;
+  real s_car;
+  real v[N-1];
+  real sigma_drift;
+  //real v_eps;
+  //real eps_t[N-2];
+  //real season[N];
+  //real s_season;
+}
+
+model{
+  real mu[N];
+  real ssum;
+/*
+  int s;
+  s<-12;
+  for(i in (s+1):N){
+    season[i]~normal(season[i-s],s_season);
+  }
+*/
+
+  for(t in 2:N-1)
+    v[t]~normal(v[t-1],sigma_drift);
+  for(t in 2:N){
+    //trend[i]~normal(trend[i-1],v_trend);
+    //trend[i]~cauchy(trend[i-1],v_trend);
+    //trend[i]~normal(2*trend[i-1]-trend[i-2]+eps_t[i-2],v_trend);
+    trend[t]~normal(trend[t-1]+v[t-1],v_trend);
+  }
+  /*
+*/
+  for(t in 3:N){
+    //c_ar[t]~normal(c_ar[t-1],s_car);
+    for(j in 1:arn){
+      c_ar[t,j]~normal(2*c_ar[t-1,j]-c_ar[t-2,j],s_car);
+    }
+  }
+
+  for(t in (arn+1):N){
+    ssum<-0;
+    for(i in 1:(arn)){
+      ssum<-ssum+c_ar[t,i]*ar[t-i];
+    }
+    ar[t]~normal(ssum,s_ar);
+  }
+
+
+  for(i in 1:N){
+      mu[i]<-trend[i]+ar[i];
+  }
+  for(i in 1:N){
+    //y[i]~cauchy(mu[i],sigma);
+    y[i]~normal(mu[i],sigma);
+  }
+}
+
+/*
+generated quantities{
+  real ssum;
+  for(t in (N+1):T_pred_max){
+    ssum<-0;
+    c_ar[t]=2*c_ar[t-1]-c_ar[t-2];
+    for(i in 1:(arn)){
+      ssum<-ssum+c_ar[t-i]*ar[t-i];
+    }
+    ar[t]<-ssum;
+  }
+
+  for(t in (arn+1):N){
+    ssum<-0;
+    for(i in 1:(arn)){
+      ssum<-ssum+c_ar[t-i]*ar[t-i];
+    }
+    ar[t]~normal(ssum,s_ar);
+  }
+}
+*/
+"
+
+
+origd=ret[,2]
+
+traint=1:120
+testt=121:length(origd)
+
+y=origd[traint]
+lst=list(N=length(origd[traint]),y=y,arn=10)
+fit=stan(model_code = scode,data=lst,
+         init = function(){list(trend=rep(mean(y),length(y)))},
+         chain=1,iter=500,warmup = 80)
+
+la=extract(fit)
+trend=apply(la$trend,2,mean)
+ar=stan.get_parameter(fit,"ar")
+car=stan.get_parameter(fit,"c_ar")
+
+N.prd=length(testt)
+prtrend=pred_trend(trend[119:120],n = length(testt))
+prar=pred_ar(tail(ar,1),tail(car,2),N.prd)
+
+ylim=c(-0.001,0.001)
+matplot(cbind(prtrend+prar,origd[testt]),ylim=c(-ylim,ylim),type="l")
+
+matplot(cbind(origd[traint],trend,trend+ar),col=c("black","red","blue"),
+        type="l",ylim=ylim)
+
+tdf=data.frame(M=trend,time=traint,col="trend")
+prt=data.frame(M=prt+prar,time=testt,col="forecast")
+
+odf=data.frame(M=origd,time=c(traint,testt),col="observations")
+df=rbind(tdf,prt,odf)
+
+gp=ggplot(df,aes(x=time,y=M,colour=col))+geom_line()
+gp=gp+ylim(-0.01,0.002)
+gp=gp+scale_colour_manual(values=c(observations='blue',
+    forecast='red', trend="pink",upper_bound='black', lower_bound='black'))
+
+print(gp)
+
+qmse=sqrt(mean((origd[testt]-prt$M)^2))
+print(qmse)
+# 0.0003469344  cauchy

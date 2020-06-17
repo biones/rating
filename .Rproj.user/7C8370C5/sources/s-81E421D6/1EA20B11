@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1592299129067.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "1EA20B11",
+    "lastKnownWriteTime" : 1592376728,
+    "last_content_update" : 1592376728794,
+    "path" : "~/R/rating/rating_double.R",
+    "project_path" : "rating_double.R",
+    "properties" : {
+        "cursorPosition" : "136,0",
+        "scrollLine" : "117",
+        "tempName" : "Untitled4"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 5,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
